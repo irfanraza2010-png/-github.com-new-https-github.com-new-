@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <LinearLayout
+        android:id="@+id/menuCard"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:background="#F2141A17"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="M  I  R"
+            android:textColor="#00E676"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <Switch
+            android:id="@+id/swAutoNums"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:text="Auto Nums"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
+        <Switch
+            android:id="@+id/swAutoAlpha"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:checked="true"
+            android:text="Auto Alpha"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
+        <Switch
+            android:id="@+id/swAutoWords"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:text="Auto Words"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp" />
+
+        <Switch
+            android:id="@+id/swIphoneDrop"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:text="iPhone drop (Burst)"
+            android:textColor="#00E676"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvDelayLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Send Delay: 0 ms"
+            android:textColor="#AAAAAA"
+            android:textSize="11sp" />
+
+        <SeekBar
+            android:id="@+id/sbDelay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="500"
+            android:progress="0" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnBubble"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="6dp"
+        android:backgroundTint="#00C853"
+        android:text="M"
+        android:textColor="#000000"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+</LinearLayout>
