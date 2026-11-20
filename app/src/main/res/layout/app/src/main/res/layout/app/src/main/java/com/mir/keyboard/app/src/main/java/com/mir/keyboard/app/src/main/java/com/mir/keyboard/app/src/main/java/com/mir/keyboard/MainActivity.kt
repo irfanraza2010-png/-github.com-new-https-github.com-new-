@@ -1,5 +1,6 @@
 package com.mir.keyboard
 
+import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -14,9 +15,8 @@ import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,11 +58,15 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.parseColor("#00C853"))
             setTextColor(Color.BLACK)
             setOnClickListener {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this@MainActivity)) {
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
-                } else {
-                    startService(Intent(this@MainActivity, FloatingMenuService::class.java))
-                    Toast.makeText(this@MainActivity, "MIR Floating Bubble Started!", Toast.LENGTH_SHORT).show()
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this@MainActivity)) {
+                        startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                    } else {
+                        startService(Intent(this@MainActivity, FloatingMenuService::class.java))
+                        Toast.makeText(this@MainActivity, "MIR Floating Bubble Started!", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
