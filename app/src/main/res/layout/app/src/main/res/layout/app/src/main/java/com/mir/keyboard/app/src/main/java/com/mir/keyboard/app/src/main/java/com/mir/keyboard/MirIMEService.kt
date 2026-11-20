@@ -1,5 +1,6 @@
 package com.mir.keyboard
 
+import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
@@ -16,49 +17,140 @@ class MirIMEService : InputMethodService() {
     private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreateInputView(): View {
-        val root = layoutInflater.inflate(R.layout.layout_keyboard, null)
-
-        val qwertyContainer = root.findViewById<LinearLayout>(R.id.qwertyContainer)
-        val numpadContainer = root.findViewById<LinearLayout>(R.id.numpadContainer)
-        val btnToggleMode = root.findViewById<Button>(R.id.btnToggleMode)
-        val btnSpace = root.findViewById<Button>(R.id.btnSpace)
-        val btnSwitchIme = root.findViewById<Button>(R.id.btnSwitchIme)
-        val btnSend = root.findViewById<Button>(R.id.btnSend)
-
-        val btnP1 = root.findViewById<Button>(R.id.btnPhrase1)
-        val btnP2 = root.findViewById<Button>(R.id.btnPhrase2)
-        val btnP3 = root.findViewById<Button>(R.id.btnPhrase3)
-
-        btnP1.text = AppConfig.getString(this, "phrase_1", "Salam")
-        btnP2.text = AppConfig.getString(this, "phrase_2", "GG")
-        btnP3.text = AppConfig.getString(this, "phrase_3", "MIR OP")
-
-        btnP1.setOnClickListener { sendPhrase(btnP1.text.toString()) }
-        btnP2.setOnClickListener { sendPhrase(btnP2.text.toString()) }
-        btnP3.setOnClickListener { sendPhrase(btnP3.text.toString()) }
-
-        addKeys(root.findViewById(R.id.row1), listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"))
-        addKeys(root.findViewById(R.id.row2), listOf("a", "s", "d", "f", "g", "h", "j", "k", "l"))
-        addKeys(root.findViewById(R.id.row3), listOf("z", "x", "c", "v", "b", "n", "m", "⌫"))
-
-        addKeys(root.findViewById(R.id.numRow1), listOf("1", "2", "3", "4"))
-        addKeys(root.findViewById(R.id.numRow2), listOf("5", "6", "7", "8"))
-        addKeys(root.findViewById(R.id.numRow3), listOf("9", "0", ".", "⌫"))
-
-        btnToggleMode.setOnClickListener {
-            isNumMode = !isNumMode
-            qwertyContainer.visibility = if (isNumMode) View.GONE else View.VISIBLE
-            numpadContainer.visibility = if (isNumMode) View.VISIBLE else View.GONE
-            btnToggleMode.text = if (isNumMode) "ABC" else "123"
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.parseColor("#101513"))
+            setPadding(8, 8, 8, 12)
         }
 
-        btnSpace.setOnClickListener { processKey(" ") }
-        btnSend.setOnClickListener { fireSend() }
-        btnSwitchIme.setOnClickListener {
-            (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+        // Quick Phrases Row
+        val phraseRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 100)
         }
+
+        val p1Text = AppConfig.getString(this, "phrase_1", "Salam")
+        val p2Text = AppConfig.getString(this, "phrase_2", "GG")
+        val p3Text = AppConfig.getString(this, "phrase_3", "MIR OP")
+
+        listOf(p1Text, p2Text, p3Text).forEach { phrase ->
+            val btn = Button(this).apply {
+                text = phrase
+                textSize = 12f
+                isAllCaps = false
+                setTextColor(Color.parseColor("#00E676"))
+                setBackgroundColor(Color.parseColor("#1E2823"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                    setMargins(4, 2, 4, 6)
+                }
+                setOnClickListener { sendPhrase(phrase) }
+            }
+            phraseRow.addView(btn)
+        }
+        root.addView(phraseRow)
+
+        // QWERTY Container
+        val qwertyContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val row1 = makeRow()
+        val row2 = makeRow().apply { setPadding(24, 0, 24, 0) }
+        val row3 = makeRow()
+
+        addKeys(row1, listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"))
+        addKeys(row2, listOf("a", "s", "d", "f", "g", "h", "j", "k", "l"))
+        addKeys(row3, listOf("z", "x", "c", "v", "b", "n", "m", "⌫"))
+
+        qwertyContainer.addView(row1)
+        qwertyContainer.addView(row2)
+        qwertyContainer.addView(row3)
+
+        // NumPad Container
+        val numpadContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+        }
+        val nRow1 = makeRow()
+        val nRow2 = makeRow()
+        val nRow3 = makeRow()
+
+        addKeys(nRow1, listOf("1", "2", "3", "4"))
+        addKeys(nRow2, listOf("5", "6", "7", "8"))
+        addKeys(nRow3, listOf("9", "0", ".", "⌫"))
+
+        numpadContainer.addView(nRow1)
+        numpadContainer.addView(nRow2)
+        numpadContainer.addView(nRow3)
+
+        root.addView(qwertyContainer)
+        root.addView(numpadContainer)
+
+        // Bottom Control Bar
+        val bottomRow = makeRow()
+
+        val btnToggle = Button(this).apply {
+            text = "123"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#26322C"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.1f).apply {
+                setMargins(4, 4, 4, 4)
+            }
+            setOnClickListener {
+                isNumMode = !isNumMode
+                qwertyContainer.visibility = if (isNumMode) View.GONE else View.VISIBLE
+                numpadContainer.visibility = if (isNumMode) View.VISIBLE else View.GONE
+                text = if (isNumMode) "ABC" else "123"
+            }
+        }
+
+        val btnSpace = Button(this).apply {
+            text = "M I R"
+            setTextColor(Color.parseColor("#00E676"))
+            setBackgroundColor(Color.parseColor("#1E2823"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2.8f).apply {
+                setMargins(4, 4, 4, 4)
+            }
+            setOnClickListener { processKey(" ") }
+        }
+
+        val btnSwitch = Button(this).apply {
+            text = "🌐"
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#26322C"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.9f).apply {
+                setMargins(4, 4, 4, 4)
+            }
+            setOnClickListener {
+                try {
+                    (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+                } catch (_: Exception) {}
+            }
+        }
+
+        val btnSend = Button(this).apply {
+            text = "➤"
+            setTextColor(Color.BLACK)
+            setBackgroundColor(Color.parseColor("#00C853"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.2f).apply {
+                setMargins(4, 4, 4, 4)
+            }
+            setOnClickListener { fireSend() }
+        }
+
+        bottomRow.addView(btnToggle)
+        bottomRow.addView(btnSpace)
+        bottomRow.addView(btnSwitch)
+        bottomRow.addView(btnSend)
+        root.addView(bottomRow)
 
         return root
+    }
+
+    private fun makeRow(): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 125)
+        }
     }
 
     private fun addKeys(row: LinearLayout, keys: List<String>) {
@@ -67,11 +159,11 @@ class MirIMEService : InputMethodService() {
                 text = key
                 textSize = 15f
                 isAllCaps = false
-                setTextColor(0xFFFFFFFF.toInt())
-                setBackgroundColor(if (key == "⌫") 0xFFB71C1C.toInt() else 0xFF222C27.toInt())
+                setTextColor(Color.WHITE)
+                setBackgroundColor(if (key == "⌫") Color.parseColor("#B71C1C") else Color.parseColor("#222C27"))
                 setPadding(0, 0, 0, 0)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                    setMargins(3, 2, 3, 2)
+                    setMargins(3, 3, 3, 3)
                 }
                 setOnClickListener {
                     if (key == "⌫") {
