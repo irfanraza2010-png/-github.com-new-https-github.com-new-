@@ -1,9 +1,11 @@
 package com.mir.keyboard
 
+import android.content.Context
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -15,6 +17,14 @@ class MirIMEService : InputMethodService() {
 
     private var isNumMode = false
     private val handler = Handler(Looper.getMainLooper())
+
+    private fun isEnabled(key: String, def: Boolean): Boolean {
+        return getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE).getBoolean(key, def)
+    }
+
+    private fun getDelayMs(): Long {
+        return getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE).getInt("send_delay", 0).toLong()
+    }
 
     override fun onCreateInputView(): View {
         val root = LinearLayout(this).apply {
@@ -28,9 +38,10 @@ class MirIMEService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 100)
         }
 
-        val p1Text = AppConfig.getString(this, "phrase_1", "Salam")
-        val p2Text = AppConfig.getString(this, "phrase_2", "GG")
-        val p3Text = AppConfig.getString(this, "phrase_3", "MIR OP")
+        val prefs = getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE)
+        val p1Text = prefs.getString("phrase_1", "Salam") ?: "Salam"
+        val p2Text = prefs.getString("phrase_2", "GG") ?: "GG"
+        val p3Text = prefs.getString("phrase_3", "MIR OP") ?: "MIR OP"
 
         listOf(p1Text, p2Text, p3Text).forEach { phrase ->
             val btn = Button(this).apply {
@@ -171,57 +182,61 @@ class MirIMEService : InputMethodService() {
 
     private fun processKey(rawKey: String) {
         val ic = currentInputConnection ?: return
-        val useBold = AppConfig.getBool(this, "bold_letters", false)
+        val useBold = isEnabled("bold_letters", false)
         val outText = if (useBold) toBold(rawKey) else rawKey
 
-        val iphoneDrop = AppConfig.getBool(this, "iphone_drop", false)
-        val delay = AppConfig.getInt(this, "send_delay", 0).toLong()
+        val iphoneDrop = isEnabled("iphone_drop", false)
+        val delay = getDelayMs()
 
         if (iphoneDrop && rawKey != " ") {
             repeat(3) { i ->
                 handler.postDelayed({
-                    ic.commitText(outText, 1)
+                    currentInputConnection?.commitText(outText, 1)
                     fireSend()
-                }, i * 35L)
+                }, i * 40L)
             }
             return
         }
 
         ic.commitText(outText, 1)
 
-        val autoAlpha = AppConfig.getBool(this, "auto_alpha", true)
-        val autoNums = AppConfig.getBool(this, "auto_nums", false)
-        val autoWords = AppConfig.getBool(this, "auto_words", false)
+        val autoAlpha = isEnabled("auto_alpha", true)
+        val autoNums = isEnabled("auto_nums", false)
+        val autoWords = isEnabled("auto_words", false)
 
         val isAlpha = rawKey.length == 1 && rawKey[0].isLetter()
         val isNum = rawKey.length == 1 && rawKey[0].isDigit()
         val isSpace = rawKey == " "
 
         if ((autoAlpha && isAlpha) || (autoNums && isNum) || (autoWords && isSpace)) {
-            if (delay > 0) {
-                handler.postDelayed({ fireSend() }, delay)
-            } else {
-                fireSend()
-            }
+            val triggerDelay = if (delay > 0L) delay else 25L
+            handler.postDelayed({ fireSend() }, triggerDelay)
         }
     }
 
     private fun sendPhrase(phrase: String) {
         val ic = currentInputConnection ?: return
-        val out = if (AppConfig.getBool(this, "bold_letters", false)) toBold(phrase) else phrase
+        val out = if (isEnabled("bold_letters", false)) toBold(phrase) else phrase
         ic.commitText(out, 1)
-        fireSend()
+        handler.postDelayed({ fireSend() }, 25L)
     }
 
     private fun fireSend() {
         val ic = currentInputConnection ?: return
         val actionId = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_UNSPECIFIED
-        if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
+
+        if (actionId == EditorInfo.IME_ACTION_SEND ||
+            actionId == EditorInfo.IME_ACTION_GO ||
+            actionId == EditorInfo.IME_ACTION_DONE ||
+            actionId == EditorInfo.IME_ACTION_SEARCH) {
             ic.performEditorAction(actionId)
         } else {
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            ic.performEditorAction(EditorInfo.IME_ACTION_SEND)
         }
+
+        val now = SystemClock.uptimeMillis()
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0))
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0))
     }
 
     private fun toBold(input: String): String {
