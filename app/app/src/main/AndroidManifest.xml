@@ -6,7 +6,7 @@
     <application
         android:allowBackup="true"
         android:label="MIR"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        android:theme="@style/Theme.AppCompat.NoActionBar">
 
         <activity
             android:name=".MainActivity"
