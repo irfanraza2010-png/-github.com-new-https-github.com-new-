@@ -1,11 +1,13 @@
 package com.mir.keyboard
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -20,12 +22,14 @@ class FloatingMenuService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatView: LinearLayout
+    private lateinit var targetBtn: Button
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val prefs = getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE)
 
         floatView = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -45,43 +49,56 @@ class FloatingMenuService : Service() {
             textSize = 16f
             gravity = Gravity.CENTER
             setTextColor(Color.parseColor("#00E676"))
-            setPadding(0, 0, 0, 16)
+            setPadding(0, 0, 0, 12)
+        }
+
+        val btnEnableTap = Button(this).apply {
+            text = "Enable Auto-Tap Service"
+            textSize = 12f
+            setBackgroundColor(Color.parseColor("#00C853"))
+            setTextColor(Color.BLACK)
+            setOnClickListener {
+                val i = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(i)
+            }
         }
 
         val swAutoNums = Switch(this).apply {
             text = "Auto Nums"
             setTextColor(Color.WHITE)
-            isChecked = AppConfig.getBool(this@FloatingMenuService, "auto_nums", false)
-            setOnCheckedChangeListener { _, isChecked -> AppConfig.setBool(this@FloatingMenuService, "auto_nums", isChecked) }
+            isChecked = prefs.getBoolean("auto_nums", false)
+            setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean("auto_nums", isChecked).apply() }
         }
 
         val swAutoAlpha = Switch(this).apply {
             text = "Auto Alpha"
             setTextColor(Color.WHITE)
-            isChecked = AppConfig.getBool(this@FloatingMenuService, "auto_alpha", true)
-            setOnCheckedChangeListener { _, isChecked -> AppConfig.setBool(this@FloatingMenuService, "auto_alpha", isChecked) }
+            isChecked = prefs.getBoolean("auto_alpha", true)
+            setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean("auto_alpha", isChecked).apply() }
         }
 
         val swAutoWords = Switch(this).apply {
             text = "Auto Words"
             setTextColor(Color.WHITE)
-            isChecked = AppConfig.getBool(this@FloatingMenuService, "auto_words", false)
-            setOnCheckedChangeListener { _, isChecked -> AppConfig.setBool(this@FloatingMenuService, "auto_words", isChecked) }
+            isChecked = prefs.getBoolean("auto_words", false)
+            setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean("auto_words", isChecked).apply() }
         }
 
         val swIphoneDrop = Switch(this).apply {
             text = "iPhone drop (Burst)"
             setTextColor(Color.parseColor("#00E676"))
-            isChecked = AppConfig.getBool(this@FloatingMenuService, "iphone_drop", false)
-            setOnCheckedChangeListener { _, isChecked -> AppConfig.setBool(this@FloatingMenuService, "iphone_drop", isChecked) }
+            isChecked = prefs.getBoolean("iphone_drop", false)
+            setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean("iphone_drop", isChecked).apply() }
         }
 
-        val savedDelay = AppConfig.getInt(this, "send_delay", 0)
+        val savedDelay = prefs.getInt("send_delay", 0)
         val tvDelayLabel = TextView(this).apply {
             text = "Send Delay: $savedDelay ms"
             textSize = 12f
             setTextColor(Color.LTGRAY)
-            setPadding(0, 16, 0, 4)
+            setPadding(0, 12, 0, 4)
         }
 
         val sbDelay = SeekBar(this).apply {
@@ -90,7 +107,7 @@ class FloatingMenuService : Service() {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     tvDelayLabel.text = "Send Delay: $progress ms"
-                    AppConfig.setInt(this@FloatingMenuService, "send_delay", progress)
+                    prefs.edit().putInt("send_delay", progress).apply()
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) {}
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -98,6 +115,7 @@ class FloatingMenuService : Service() {
         }
 
         menuCard.addView(tvTitle)
+        menuCard.addView(btnEnableTap)
         menuCard.addView(swAutoNums)
         menuCard.addView(swAutoAlpha)
         menuCard.addView(swAutoWords)
@@ -110,8 +128,8 @@ class FloatingMenuService : Service() {
             textSize = 18f
             setTextColor(Color.BLACK)
             setBackgroundColor(Color.parseColor("#00C853"))
-            layoutParams = LinearLayout.LayoutParams(130, 130).apply {
-                setMargins(16, 0, 0, 0)
+            layoutParams = LinearLayout.LayoutParams(120, 120).apply {
+                setMargins(12, 0, 0, 0)
             }
         }
 
@@ -131,9 +149,9 @@ class FloatingMenuService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            gravity = Gravity.TOP or Gravity.END
             x = 16
-            y = 0
+            y = 250
         }
 
         windowManager.addView(floatView, params)
@@ -167,12 +185,68 @@ class FloatingMenuService : Service() {
                 else -> false
             }
         }
+
+        // Draggable Target (🎯) jise Yalla Ludo ke Send button par rakhna hai
+        targetBtn = Button(this).apply {
+            text = "🎯"
+            textSize = 18f
+            setPadding(0, 0, 0, 0)
+            setBackgroundColor(Color.parseColor("#8800C853"))
+        }
+
+        val tParams = WindowManager.LayoutParams(
+            110, 110,
+            layoutFlag,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = 850
+            y = 1100
+        }
+
+        windowManager.addView(targetBtn, tParams)
+
+        var tInitX = 0
+        var tInitY = 0
+        var tTouchX = 0f
+        var tTouchY = 0f
+
+        targetBtn.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    tInitX = tParams.x
+                    tInitY = tParams.y
+                    tTouchX = event.rawX
+                    tTouchY = event.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    tParams.x = tInitX + (event.rawX - tTouchX).toInt()
+                    tParams.y = tInitY + (event.rawY - tTouchY).toInt()
+                    windowManager.updateViewLayout(targetBtn, tParams)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    val loc = IntArray(2)
+                    targetBtn.getLocationOnScreen(loc)
+                    val centerX = loc[0] + (targetBtn.width / 2f)
+                    val centerY = loc[1] + (targetBtn.height / 2f)
+                    prefs.edit().putFloat("target_x", centerX).putFloat("target_y", centerY).apply()
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         if (::floatView.isInitialized) {
             try { windowManager.removeView(floatView) } catch (_: Exception) {}
+        }
+        if (::targetBtn.isInitialized) {
+            try { windowManager.removeView(targetBtn) } catch (_: Exception) {}
         }
     }
 }
