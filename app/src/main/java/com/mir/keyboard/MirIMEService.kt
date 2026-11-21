@@ -1,6 +1,7 @@
 package com.mir.keyboard
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
@@ -202,7 +203,7 @@ class MirIMEService : InputMethodService() {
                 handler.postDelayed({
                     currentInputConnection?.commitText(outText, 1)
                     fireSend()
-                }, i * 60L)
+                }, i * 65L)
             }
             return
         }
@@ -218,7 +219,7 @@ class MirIMEService : InputMethodService() {
         val isSpace = rawKey == " "
 
         if ((autoAlpha && isAlpha) || (autoNums && isNum) || (autoWords && isSpace)) {
-            val triggerDelay = if (delay > 0L) delay else 40L
+            val triggerDelay = if (delay > 0L) delay else 35L
             handler.postDelayed({ fireSend() }, triggerDelay)
         }
     }
@@ -227,26 +228,26 @@ class MirIMEService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val out = if (isEnabled("bold_letters", false)) toBold(phrase) else phrase
         ic.commitText(out, 1)
-        handler.postDelayed({ fireSend() }, 40L)
+        handler.postDelayed({ fireSend() }, 35L)
     }
 
     private fun fireSend() {
         val ic = currentInputConnection ?: return
 
+        sendBroadcast(Intent("com.mir.keyboard.ACTION_TAP_SEND"))
+
         val actionId = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
         if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
             ic.performEditorAction(actionId)
         }
-        ic.performEditorAction(EditorInfo.IME_ACTION_DONE)
         ic.performEditorAction(EditorInfo.IME_ACTION_SEND)
 
         val downTime = SystemClock.uptimeMillis()
         ic.sendKeyEvent(KeyEvent(downTime, downTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER, 0))
-
         handler.postDelayed({
             val upTime = SystemClock.uptimeMillis()
             currentInputConnection?.sendKeyEvent(KeyEvent(downTime, upTime, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0))
-        }, 20L)
+        }, 15L)
     }
 
     private fun toBold(input: String): String {
