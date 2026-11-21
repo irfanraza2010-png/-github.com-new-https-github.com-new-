@@ -8,18 +8,27 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Path
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 
 class MirTapService : AccessibilityService() {
 
+    private val handler = Handler(Looper.getMainLooper())
+
     private val tapReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val prefs = getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE)
-            val x = prefs.getFloat("target_x", -1f)
-            val y = prefs.getFloat("target_y", -1f)
-            if (x > 0f && y > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                performTap(x, y)
-            }
+            val dm = resources.displayMetrics
+            val x = prefs.getFloat("target_x", dm.widthPixels * 0.93f)
+            val y = prefs.getFloat("target_y", dm.heightPixels * 0.69f)
+
+            // 55ms wait taake targetView pass-through ho jaye aur Yalla Ludo ka send button active ho jaye
+            handler.postDelayed({
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    performTap(x, y)
+                }
+            }, 55L)
         }
     }
 
@@ -35,7 +44,8 @@ class MirTapService : AccessibilityService() {
 
     private fun performTap(x: Float, y: Float) {
         val path = Path().apply { moveTo(x, y) }
-        val stroke = GestureDescription.StrokeDescription(path, 0L, 25L)
+        // Unity game engine ke liye 55ms tap duration zaroori hai
+        val stroke = GestureDescription.StrokeDescription(path, 0L, 55L)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
         dispatchGesture(gesture, null, null)
     }
