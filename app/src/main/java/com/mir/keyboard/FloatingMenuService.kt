@@ -40,7 +40,7 @@ class FloatingMenuService : Service() {
                 handler.postDelayed({
                     tParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                     try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
-                }, 120L)
+                }, 220L)
             }
         }
     }
