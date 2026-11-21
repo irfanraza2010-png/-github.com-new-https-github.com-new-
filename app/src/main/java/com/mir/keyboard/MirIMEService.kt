@@ -30,12 +30,12 @@ class MirIMEService : InputMethodService() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#101513"))
-            setPadding(8, 8, 8, 12)
+            setPadding(6, 6, 6, 8)
         }
 
         val phraseRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 100)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 76)
         }
 
         val prefs = getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE)
@@ -46,12 +46,13 @@ class MirIMEService : InputMethodService() {
         listOf(p1Text, p2Text, p3Text).forEach { phrase ->
             val btn = Button(this).apply {
                 text = phrase
-                textSize = 12f
+                textSize = 11f
                 isAllCaps = false
+                setPadding(0, 0, 0, 0)
                 setTextColor(Color.parseColor("#00E676"))
                 setBackgroundColor(Color.parseColor("#1E2823"))
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                    setMargins(4, 2, 4, 6)
+                    setMargins(3, 2, 3, 4)
                 }
                 setOnClickListener { sendPhrase(phrase) }
             }
@@ -61,7 +62,7 @@ class MirIMEService : InputMethodService() {
 
         val qwertyContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val row1 = makeRow()
-        val row2 = makeRow().apply { setPadding(24, 0, 24, 0) }
+        val row2 = makeRow().apply { setPadding(20, 0, 20, 0) }
         val row3 = makeRow()
 
         addKeys(row1, listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"))
@@ -95,10 +96,12 @@ class MirIMEService : InputMethodService() {
 
         val btnToggle = Button(this).apply {
             text = "123"
+            textSize = 13f
+            setPadding(0, 0, 0, 0)
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#26322C"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.1f).apply {
-                setMargins(4, 4, 4, 4)
+                setMargins(3, 3, 3, 3)
             }
             setOnClickListener {
                 isNumMode = !isNumMode
@@ -110,20 +113,24 @@ class MirIMEService : InputMethodService() {
 
         val btnSpace = Button(this).apply {
             text = "M I R"
+            textSize = 13f
+            setPadding(0, 0, 0, 0)
             setTextColor(Color.parseColor("#00E676"))
             setBackgroundColor(Color.parseColor("#1E2823"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2.8f).apply {
-                setMargins(4, 4, 4, 4)
+                setMargins(3, 3, 3, 3)
             }
             setOnClickListener { processKey(" ") }
         }
 
         val btnSwitch = Button(this).apply {
             text = "🌐"
+            textSize = 14f
+            setPadding(0, 0, 0, 0)
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#26322C"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.9f).apply {
-                setMargins(4, 4, 4, 4)
+                setMargins(3, 3, 3, 3)
             }
             setOnClickListener {
                 try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker() } catch (_: Exception) {}
@@ -132,10 +139,12 @@ class MirIMEService : InputMethodService() {
 
         val btnSend = Button(this).apply {
             text = "➤"
+            textSize = 15f
+            setPadding(0, 0, 0, 0)
             setTextColor(Color.BLACK)
             setBackgroundColor(Color.parseColor("#00C853"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.2f).apply {
-                setMargins(4, 4, 4, 4)
+                setMargins(3, 3, 3, 3)
             }
             setOnClickListener { fireSend() }
         }
@@ -152,7 +161,7 @@ class MirIMEService : InputMethodService() {
     private fun makeRow(): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 125)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 98)
         }
     }
 
@@ -160,13 +169,13 @@ class MirIMEService : InputMethodService() {
         for (key in keys) {
             val btn = Button(this).apply {
                 text = key
-                textSize = 15f
+                textSize = 14f
                 isAllCaps = false
                 setTextColor(Color.WHITE)
                 setBackgroundColor(if (key == "⌫") Color.parseColor("#B71C1C") else Color.parseColor("#222C27"))
                 setPadding(0, 0, 0, 0)
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
-                    setMargins(3, 3, 3, 3)
+                    setMargins(2, 2, 2, 2)
                 }
                 setOnClickListener {
                     if (key == "⌫") {
@@ -193,7 +202,7 @@ class MirIMEService : InputMethodService() {
                 handler.postDelayed({
                     currentInputConnection?.commitText(outText, 1)
                     fireSend()
-                }, i * 45L)
+                }, i * 60L)
             }
             return
         }
@@ -209,7 +218,7 @@ class MirIMEService : InputMethodService() {
         val isSpace = rawKey == " "
 
         if ((autoAlpha && isAlpha) || (autoNums && isNum) || (autoWords && isSpace)) {
-            val triggerDelay = if (delay > 0L) delay else 30L
+            val triggerDelay = if (delay > 0L) delay else 40L
             handler.postDelayed({ fireSend() }, triggerDelay)
         }
     }
@@ -218,7 +227,7 @@ class MirIMEService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val out = if (isEnabled("bold_letters", false)) toBold(phrase) else phrase
         ic.commitText(out, 1)
-        handler.postDelayed({ fireSend() }, 30L)
+        handler.postDelayed({ fireSend() }, 40L)
     }
 
     private fun fireSend() {
@@ -237,9 +246,7 @@ class MirIMEService : InputMethodService() {
         handler.postDelayed({
             val upTime = SystemClock.uptimeMillis()
             currentInputConnection?.sendKeyEvent(KeyEvent(downTime, upTime, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0))
-            currentInputConnection?.sendKeyEvent(KeyEvent(upTime, upTime, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, 0))
-            currentInputConnection?.sendKeyEvent(KeyEvent(upTime, upTime + 10, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_DPAD_CENTER, 0))
-        }, 15L)
+        }, 20L)
     }
 
     private fun toBold(input: String): String {
