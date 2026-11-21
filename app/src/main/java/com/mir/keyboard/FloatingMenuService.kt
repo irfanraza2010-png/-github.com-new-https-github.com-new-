@@ -1,12 +1,16 @@
 package com.mir.keyboard
 
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
@@ -17,12 +21,29 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import android.widget.Toast
 
 class FloatingMenuService : Service() {
 
     private lateinit var windowManager: WindowManager
     private lateinit var floatView: LinearLayout
-    private lateinit var targetBtn: Button
+    private lateinit var targetView: TextView
+    private lateinit var tParams: WindowManager.LayoutParams
+    private val handler = Handler(Looper.getMainLooper())
+
+    private val passThroughReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (::targetView.isInitialized && ::tParams.isInitialized) {
+                tParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
+
+                handler.postDelayed({
+                    tParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
+                }, 120L)
+            }
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -30,6 +51,14 @@ class FloatingMenuService : Service() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         val prefs = getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE)
+        val dm = resources.displayMetrics
+
+        val filter = IntentFilter("com.mir.keyboard.ACTION_TAP_SEND")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(passThroughReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(passThroughReceiver, filter)
+        }
 
         floatView = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -58,10 +87,14 @@ class FloatingMenuService : Service() {
             setBackgroundColor(Color.parseColor("#00C853"))
             setTextColor(Color.BLACK)
             setOnClickListener {
-                val i = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    val i = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    }
+                    startActivity(i)
+                } catch (e: Exception) {
+                    Toast.makeText(this@FloatingMenuService, "Settings > Accessibility > MIR Auto-Send Tapper", Toast.LENGTH_LONG).show()
                 }
-                startActivity(i)
             }
         }
 
@@ -186,33 +219,36 @@ class FloatingMenuService : Service() {
             }
         }
 
-        // Draggable Target (🎯) jise Yalla Ludo ke Send button par rakhna hai
-        targetBtn = Button(this).apply {
+        val defaultX = (dm.widthPixels * 0.90f).toInt()
+        val defaultY = (dm.heightPixels * 0.67f).toInt()
+        prefs.edit().putFloat("target_x", defaultX + 45f).putFloat("target_y", defaultY + 45f).apply()
+
+        targetView = TextView(this).apply {
             text = "🎯"
-            textSize = 18f
-            setPadding(0, 0, 0, 0)
+            textSize = 20f
+            gravity = Gravity.CENTER
             setBackgroundColor(Color.parseColor("#8800C853"))
         }
 
-        val tParams = WindowManager.LayoutParams(
-            110, 110,
+        tParams = WindowManager.LayoutParams(
+            90, 90,
             layoutFlag,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 850
-            y = 1100
+            x = defaultX
+            y = defaultY
         }
 
-        windowManager.addView(targetBtn, tParams)
+        windowManager.addView(targetView, tParams)
 
         var tInitX = 0
         var tInitY = 0
         var tTouchX = 0f
         var tTouchY = 0f
 
-        targetBtn.setOnTouchListener { _, event ->
+        targetView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     tInitX = tParams.x
@@ -224,14 +260,14 @@ class FloatingMenuService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     tParams.x = tInitX + (event.rawX - tTouchX).toInt()
                     tParams.y = tInitY + (event.rawY - tTouchY).toInt()
-                    windowManager.updateViewLayout(targetBtn, tParams)
+                    windowManager.updateViewLayout(targetView, tParams)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
                     val loc = IntArray(2)
-                    targetBtn.getLocationOnScreen(loc)
-                    val centerX = loc[0] + (targetBtn.width / 2f)
-                    val centerY = loc[1] + (targetBtn.height / 2f)
+                    targetView.getLocationOnScreen(loc)
+                    val centerX = loc[0] + (targetView.width / 2f)
+                    val centerY = loc[1] + (targetView.height / 2f)
                     prefs.edit().putFloat("target_x", centerX).putFloat("target_y", centerY).apply()
                     true
                 }
@@ -242,11 +278,12 @@ class FloatingMenuService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        try { unregisterReceiver(passThroughReceiver) } catch (_: Exception) {}
         if (::floatView.isInitialized) {
             try { windowManager.removeView(floatView) } catch (_: Exception) {}
         }
-        if (::targetBtn.isInitialized) {
-            try { windowManager.removeView(targetBtn) } catch (_: Exception) {}
+        if (::targetView.isInitialized) {
+            try { windowManager.removeView(targetView) } catch (_: Exception) {}
         }
     }
 }
