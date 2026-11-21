@@ -29,18 +29,21 @@ class FloatingMenuService : Service() {
     private lateinit var floatView: LinearLayout
     private lateinit var targetView: TextView
     private lateinit var tParams: WindowManager.LayoutParams
+    private var isTargetLocked = false
     private val handler = Handler(Looper.getMainLooper())
 
     private val passThroughReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (::targetView.isInitialized && ::tParams.isInitialized) {
+            if (!isTargetLocked && ::targetView.isInitialized && ::tParams.isInitialized) {
                 tParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                 try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
 
                 handler.postDelayed({
-                    tParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
-                }, 220L)
+                    if (!isTargetLocked) {
+                        tParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
+                    }
+                }, 80L)
             }
         }
     }
@@ -98,6 +101,24 @@ class FloatingMenuService : Service() {
             }
         }
 
+        val swLockTarget = Switch(this).apply {
+            text = "Lock Target (Turbo)"
+            setTextColor(Color.parseColor("#00E676"))
+            isChecked = false
+            setOnCheckedChangeListener { _, locked ->
+                isTargetLocked = locked
+                if (::targetView.isInitialized && ::tParams.isInitialized) {
+                    tParams.flags = if (locked) {
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                    } else {
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                    }
+                    targetView.alpha = if (locked) 0.45f else 1.0f
+                    try { windowManager.updateViewLayout(targetView, tParams) } catch (_: Exception) {}
+                }
+            }
+        }
+
         val swAutoNums = Switch(this).apply {
             text = "Auto Nums"
             setTextColor(Color.WHITE)
@@ -149,6 +170,7 @@ class FloatingMenuService : Service() {
 
         menuCard.addView(tvTitle)
         menuCard.addView(btnEnableTap)
+        menuCard.addView(swLockTarget)
         menuCard.addView(swAutoNums)
         menuCard.addView(swAutoAlpha)
         menuCard.addView(swAutoWords)
