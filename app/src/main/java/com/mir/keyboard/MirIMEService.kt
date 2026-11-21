@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -55,7 +56,15 @@ class MirIMEService : InputMethodService() {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
                     setMargins(3, 2, 3, 4)
                 }
-                setOnClickListener { sendPhrase(phrase) }
+                setOnTouchListener { v, event ->
+                    if (event.action == MotionEvent.ACTION_DOWN) {
+                        v.alpha = 0.6f
+                        sendPhrase(phrase)
+                    } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                        v.alpha = 1.0f
+                    }
+                    true
+                }
             }
             phraseRow.addView(btn)
         }
@@ -121,7 +130,15 @@ class MirIMEService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 2.8f).apply {
                 setMargins(3, 3, 3, 3)
             }
-            setOnClickListener { processKey(" ") }
+            setOnTouchListener { v, event ->
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    v.alpha = 0.6f
+                    processKey(" ")
+                } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                    v.alpha = 1.0f
+                }
+                true
+            }
         }
 
         val btnSwitch = Button(this).apply {
@@ -147,7 +164,15 @@ class MirIMEService : InputMethodService() {
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1.2f).apply {
                 setMargins(3, 3, 3, 3)
             }
-            setOnClickListener { fireSend() }
+            setOnTouchListener { v, event ->
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    v.alpha = 0.6f
+                    fireSend()
+                } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                    v.alpha = 1.0f
+                }
+                true
+            }
         }
 
         bottomRow.addView(btnToggle)
@@ -178,12 +203,18 @@ class MirIMEService : InputMethodService() {
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
                     setMargins(2, 2, 2, 2)
                 }
-                setOnClickListener {
-                    if (key == "⌫") {
-                        currentInputConnection?.deleteSurroundingText(1, 0)
-                    } else {
-                        processKey(key)
+                setOnTouchListener { v, event ->
+                    if (event.action == MotionEvent.ACTION_DOWN) {
+                        v.alpha = 0.55f
+                        if (key == "⌫") {
+                            currentInputConnection?.deleteSurroundingText(1, 0)
+                        } else {
+                            processKey(key)
+                        }
+                    } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                        v.alpha = 1.0f
                     }
+                    true
                 }
             }
             row.addView(btn)
@@ -203,7 +234,7 @@ class MirIMEService : InputMethodService() {
                 handler.postDelayed({
                     currentInputConnection?.commitText(outText, 1)
                     fireSend()
-                }, i * 65L)
+                }, i * 35L)
             }
             return
         }
@@ -219,8 +250,11 @@ class MirIMEService : InputMethodService() {
         val isSpace = rawKey == " "
 
         if ((autoAlpha && isAlpha) || (autoNums && isNum) || (autoWords && isSpace)) {
-            val triggerDelay = if (delay > 0L) delay else 35L
-            handler.postDelayed({ fireSend() }, triggerDelay)
+            if (delay > 0L) {
+                handler.postDelayed({ fireSend() }, delay)
+            } else {
+                handler.postDelayed({ fireSend() }, 10L)
+            }
         }
     }
 
@@ -228,13 +262,20 @@ class MirIMEService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val out = if (isEnabled("bold_letters", false)) toBold(phrase) else phrase
         ic.commitText(out, 1)
-        handler.postDelayed({ fireSend() }, 35L)
+        handler.postDelayed({ fireSend() }, 10L)
     }
 
     private fun fireSend() {
         val ic = currentInputConnection ?: return
+        val prefs = getSharedPreferences("mir_keyboard_prefs", Context.MODE_PRIVATE)
+        val tx = prefs.getFloat("target_x", -1f)
+        val ty = prefs.getFloat("target_y", -1f)
 
-        sendBroadcast(Intent("com.mir.keyboard.ACTION_TAP_SEND"))
+        val tapIntent = Intent("com.mir.keyboard.ACTION_TAP_SEND").apply {
+            putExtra("x", tx)
+            putExtra("y", ty)
+        }
+        sendBroadcast(tapIntent)
 
         val actionId = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
         if (actionId != EditorInfo.IME_ACTION_NONE && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
@@ -247,7 +288,7 @@ class MirIMEService : InputMethodService() {
         handler.postDelayed({
             val upTime = SystemClock.uptimeMillis()
             currentInputConnection?.sendKeyEvent(KeyEvent(downTime, upTime, KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER, 0))
-        }, 15L)
+        }, 10L)
     }
 
     private fun toBold(input: String): String {
